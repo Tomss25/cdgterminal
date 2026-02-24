@@ -6,32 +6,21 @@ import yfinance as yf
 import streamlit.components.v1 as components
 
 # =============================================================================
-# 1. CORE CONFIG & UI INJECTION (L'Ecosistema Visivo)
+# 1. CORE CONFIG & UI INJECTION
 # =============================================================================
-st.set_page_config(page_title="Alpha Terminal V8.0", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Alpha Terminal V8.1", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
-    /* Sfondo globale e testo principale */
     .stApp { background-color: #0A0E17; color: #D1D5DB; font-family: 'Inter', -apple-system, sans-serif; }
-    
-    /* Headers (Titoli) */
     h1, h2, h3, h4 { color: #F8B400 !important; font-family: 'SF Pro Display', sans-serif; font-weight: 600; letter-spacing: -0.5px; }
-    
-    /* Stile dei pulsanti */
     .stButton>button { background-color: #1E293B; color: #60A5FA; border: 1px solid #3B82F6; border-radius: 4px; font-weight: bold; transition: all 0.2s; width: 100%; }
     .stButton>button:hover { background-color: #3B82F6; color: #FFFFFF; border-color: #60A5FA; }
-    
-    /* Input testuali */
     .stTextArea>div>div>textarea, .stTextInput>div>div>input { background-color: #111827; color: #10B981; font-family: 'Courier New', Courier, monospace; border: 1px solid #374151; border-radius: 4px; }
     .stTextArea>div>div>textarea:focus, .stTextInput>div>div>input:focus { border-color: #F8B400; box-shadow: none; }
-    
-    /* Tabs */
     .stTabs [data-baseweb="tab-list"] { background-color: #0F172A; border-bottom: 2px solid #1E293B; }
     .stTabs [data-baseweb="tab"] { color: #94A3B8; font-weight: 600; padding-top: 1rem; padding-bottom: 1rem; }
     .stTabs [aria-selected="true"] { color: #F8B400; border-bottom-color: #F8B400; }
-    
-    /* Avvisi */
     .stAlert { background-color: #111827; border: 1px solid #374151; color: #D1D5DB; }
 </style>
 """, unsafe_allow_html=True)
@@ -40,7 +29,7 @@ st.title("ALPHA TERMINAL // PROPRIETARY ENGINE")
 st.markdown("---")
 
 # =============================================================================
-# 2. SESSION STATE (La Memoria Persistente)
+# 2. SESSION STATE
 # =============================================================================
 if 'df_stock' not in st.session_state:
     st.session_state['df_stock'] = None
@@ -50,7 +39,7 @@ if 'api_calls' not in st.session_state:
     st.session_state['api_calls'] = 0
 
 # =============================================================================
-# 3. MOTORI DI ESTRAZIONE DATI (Niente side-effects qui dentro)
+# 3. MOTORI DI ESTRAZIONE DATI
 # =============================================================================
 @st.cache_data(ttl=600)
 def fetch_stock_data(symbol):
@@ -102,23 +91,24 @@ with tab_home:
     
     with col_dx:
         st.markdown("**CALENDARIO ECONOMICO**")
+        # Inserimento esatto del tuo widget aggiornato, forzato a width 100% per non rompere l'UI
         cal_html = """
-        <iframe src="https://sslecal2.investing.com?ecoDayBackground=%230A0E17&defaultFont=%23D1D5DB&borderColor=%231E293B&ecoDayFontColor=%23F8B400&columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=25,32,6,37,72,22,17,39,14,10,35,43,56,36,110,11,26,12,4,5&calType=week&timeZone=8&lang=1" width="100%" height="520" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>
+        <iframe src="https://sslecal2.investing.com?ecoDayBackground=%23000000&defaultFont=%23050505&ecoDayFontColor=%23d47f00&columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=25,32,6,37,72,22,17,39,14,10,35,43,56,36,110,11,26,12,4,5&calType=week&timeZone=16&lang=1" width="100%" height="467" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe><div class="poweredBy" style="font-family: Arial, Helvetica, sans-serif;"><span style="font-size: 11px;color: #333333;text-decoration: none;">Real Time Economic Calendar provided by <a href="https://www.investing.com/" rel="nofollow" target="_blank" style="font-size: 11px;color: #06529D; font-weight: bold;" class="underline_link">Investing.com</a>.</span></div>
         """
-        components.html(cal_html, height=530)
+        components.html(cal_html, height=500)
 
     with col_sx:
         st.markdown("**LIVE CURRENCY CROSS RATES**")
         fx_html = """
-        <iframe src="https://www.widgets.investing.com/live-currency-cross-rates?theme=darkTheme&roundedCorners=true&pairs=1,3,2,4,7,5,8,6,9,10,11" width="100%" height="220" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>
+        <iframe src="https://www.widgets.investing.com/live-currency-cross-rates?theme=darkTheme&roundedCorners=true&pairs=1,3,2,4,7,5,8,6,9,10,11" width="100%" height="220" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe><div class="poweredBy" style="font-family: Arial, Helvetica, sans-serif;">Powered by <a href="https://www.investing.com?utm_source=WMT&amp;utm_medium=referral&amp;utm_campaign=LIVE_CURRENCY_X_RATES&amp;utm_content=Footer%20Link" target="_blank" rel="nofollow">Investing.com</a></div>
         """
-        components.html(fx_html, height=230)
+        components.html(fx_html, height=250)
         
         st.markdown("**TOP CRYPTOCURRENCIES**")
         crypto_html = """
-        <iframe src="https://www.widgets.investing.com/top-cryptocurrencies?theme=darkTheme&roundedCorners=true" width="100%" height="220" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>
+        <iframe src="https://www.widgets.investing.com/top-cryptocurrencies?theme=darkTheme&roundedCorners=true" width="100%" height="220" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe><div class="poweredBy" style="font-family: Arial, Helvetica, sans-serif;">Powered by <a href="https://www.investing.com?utm_source=WMT&amp;utm_medium=referral&amp;utm_campaign=TOP_CRYPTOCURRENCIES&amp;utm_content=Footer%20Link" target="_blank" rel="nofollow">Investing.com</a></div>
         """
-        components.html(crypto_html, height=230)
+        components.html(crypto_html, height=250)
 
 with tab_stock:
     st.subheader("➤ EQUITY COMMAND LINE")
