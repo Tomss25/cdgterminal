@@ -205,4 +205,51 @@ with tab_portfolio:
         st.dataframe(portfolio, use_container_width=True)
         if not portfolio_clean.empty:
             fig = px.scatter(portfolio_clean, x='Price', y='Yield/Growth', color='Asset Class', hover_name='Identifier', color_discrete_sequence=['#3B82F6', '#10B981'])
-            fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#FFFFFF', family="Courier New"), xaxis=dict(showgrid=True, grid
+            fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#FFFFFF', family="Courier New"), xaxis=dict(showgrid=True, gridcolor='#1F2937', title="Prezzo di Mercato"), yaxis=dict(showgrid=True, gridcolor='#1F2937', title="Rendimento (YTM / ROE %)"))
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("⚠️ SYSTEM HALT: Popolare entrambi i database (EQ e FI) dai rispettivi tab prima di generare la matrice.")
+
+with tab_deepdive:
+    st.subheader("➤ X-RAY SINGLE ASSET (ISOLATED ANALYSIS)")
+    st.write("Analisi incrociata: Motore Quantitativo vs Analyst Consensus vs Trend Tecnico")
+    col_input, col_bench = st.columns(2)
+    with col_input:
+        target_ticker = st.text_input("Inserisci UN SINGOLO Ticker (es: MSFT, NVDA, RACE.MI):", "MSFT").upper()
+    with col_bench:
+        benchmark_ticker = st.text_input("Inserisci Benchmark di Riferimento (es: SPY, QQQ):", "SPY").upper()
+        
+    if st.button("EXECUTE X-RAY ANALYSIS"):
+        st.session_state['api_calls'] += 2
+        with st.spinner('Estrazione dati storici e consensus in corso...'):
+            dd_data = fetch_deep_dive(target_ticker, benchmark_ticker)
+            if dd_data.get('Status') == 'OK':
+                st.markdown(f"### 🎯 RADIOGRAFIA: {dd_data['Symbol']}")
+                
+                st.markdown("#### 1. FORZA RELATIVA (1 YEAR PERFORMANCE)")
+                c1, c2, c3 = st.columns(3)
+                c1.metric(f"Rendimento {dd_data['Symbol']}", f"{dd_data['Ret 1Y']:.2f}%" if pd.notnull(dd_data['Ret 1Y']) else "N/A")
+                c2.metric(f"Rendimento {benchmark_ticker}", f"{dd_data['Bench Ret 1Y']:.2f}%" if pd.notnull(dd_data['Bench Ret 1Y']) else "N/A")
+                c3.metric("Alpha Generato", f"{dd_data['Alpha (vs Bench)']:.2f}%" if pd.notnull(dd_data['Alpha (vs Bench)']) else "N/A", delta="Sotto-performante" if pd.notnull(dd_data['Alpha (vs Bench)']) and dd_data['Alpha (vs Bench)'] < 0 else "Sovra-performante", delta_color="normal")
+                
+                st.markdown("#### 2. WALL STREET CONSENSUS (LE 'VOCI')")
+                c4, c5, c6 = st.columns(3)
+                c4.metric("Raccomandazione Analisti", dd_data['Recommendation'])
+                c5.metric("Target Price Medio", f"{dd_data['Analyst Target']:.2f}" if pd.notnull(dd_data['Analyst Target']) else "N/A")
+                c6.metric("Upside Stimato %", f"{dd_data['Consensus Upside %']:.2f}%" if pd.notnull(dd_data['Consensus Upside %']) else "N/A")
+                
+                st.markdown("#### 3. REGIME TECNICO E DRAWDOWN")
+                c7, c8, c9 = st.columns(3)
+                trend_status = "📉 BEAR (Sotto SMA200)" if pd.notnull(dd_data['Price']) and pd.notnull(dd_data['SMA 200']) and dd_data['Price'] < dd_data['SMA 200'] else ("📈 BULL (Sopra SMA200)" if pd.notnull(dd_data['Price']) and pd.notnull(dd_data['SMA 200']) else "N/A")
+                c7.metric("Trend di Lungo Periodo", trend_status)
+                sma_cross = "🟢 POSITIVO (SMA50 > SMA200)" if pd.notnull(dd_data['SMA 50']) and pd.notnull(dd_data['SMA 200']) and dd_data['SMA 50'] > dd_data['SMA 200'] else ("🔴 NEGATIVO (Death Cross)" if pd.notnull(dd_data['SMA 50']) and pd.notnull(dd_data['SMA 200']) else "N/A")
+                c8.metric("Momentum Breve/Medio", sma_cross)
+                c9.metric("Distanza da 52w High", f"{dd_data['Drawdown (52w)']:.2f}%" if pd.notnull(dd_data['Drawdown (52w)']) else "N/A")
+            else:
+                st.error("Errore API. Verifica che i ticker esistano su Yahoo Finance.")
+
+# =============================================================================
+# FOOTER
+# =============================================================================
+st.markdown("---")
+st.caption(f"SYSTEM STATUS: ONLINE | CACHE: ACTIVE | TOTAL API HITS (SESSION): {st.session_state['api_calls']}")
