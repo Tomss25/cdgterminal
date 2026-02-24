@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 # =============================================================================
 # 1. CORE CONFIG & UI INJECTION
 # =============================================================================
-st.set_page_config(page_title="Alpha Terminal V10.2 - Final Edition", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Alpha Terminal V10.3 - Final Edition", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -207,7 +207,13 @@ with tab_portfolio:
         st.dataframe(portfolio, use_container_width=True)
         if not portfolio_clean.empty:
             fig = px.scatter(portfolio_clean, x='Price', y='Yield/Growth', color='Asset Class', hover_name='Identifier', color_discrete_sequence=['#3B82F6', '#10B981'])
-            fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#FFFFFF', family="Courier New"), xaxis=dict(showgrid=True, gridcolor='#1F2937', title="Prezzo di Mercato"), yaxis=dict(showgrid=True, gridcolor='#1F2937', title="Rendimento (YTM / ROE %)"))
+            fig.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+                font=dict(color='#FFFFFF', family="Courier New"), 
+                xaxis=dict(showgrid=True, gridcolor='#1F2937', title="Prezzo di Mercato"), 
+                yaxis=dict(showgrid=True, gridcolor='#1F2937', title="Rendimento (YTM / ROE %)"),
+                legend=dict(font=dict(color='#FFFFFF'))
+            )
             st.plotly_chart(fig, use_container_width=True)
 
 with tab_deepdive:
@@ -218,7 +224,7 @@ with tab_deepdive:
         
     if st.button("EXECUTE QUANTITATIVE X-RAY"):
         st.session_state['api_calls'] += 2
-        with st.spinner('Calcolo modelli quantitativi e distribuzioni statistiche...'):
+        with st.spinner('Calcolo modelli quantitativi in corso...'):
             dd_data = fetch_deep_dive(target_ticker, benchmark_ticker)
             
             if dd_data.get('Status') == 'OK':
@@ -255,7 +261,8 @@ with tab_deepdive:
                         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                         font=dict(color='#FFFFFF', family="Courier New"),
                         xaxis_title="Data", yaxis_title="Prezzo del Titolo ($)",
-                        hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                        hovermode="x unified", 
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='#FFFFFF'))
                     )
                     st.plotly_chart(fig_ts, use_container_width=True)
                 else:
