@@ -9,20 +9,35 @@ from datetime import datetime, timedelta
 # =============================================================================
 # 1. CORE CONFIG & UI INJECTION
 # =============================================================================
-st.set_page_config(page_title="Alpha Terminal V9.0 - X-Ray Edition", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Alpha Terminal V9.1 - X-Ray Edition", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
+    /* Sfondo globale e testo principale */
     .stApp { background-color: #0A0E17; color: #D1D5DB; font-family: 'Inter', -apple-system, sans-serif; }
     h1, h2, h3, h4 { color: #F8B400 !important; font-family: 'SF Pro Display', sans-serif; font-weight: 600; letter-spacing: -0.5px; }
+    
+    /* Stile dei pulsanti */
     .stButton>button { background-color: #1E293B; color: #60A5FA; border: 1px solid #3B82F6; border-radius: 4px; font-weight: bold; transition: all 0.2s; width: 100%; }
     .stButton>button:hover { background-color: #3B82F6; color: #FFFFFF; border-color: #60A5FA; }
+    
+    /* Input testuali base */
     .stTextArea>div>div>textarea, .stTextInput>div>div>input { background-color: #111827; color: #10B981; font-family: 'Courier New', Courier, monospace; border: 1px solid #374151; border-radius: 4px; }
     .stTextArea>div>div>textarea:focus, .stTextInput>div>div>input:focus { border-color: #F8B400; box-shadow: none; }
+    
+    /* Tabs */
     .stTabs [data-baseweb="tab-list"] { background-color: #0F172A; border-bottom: 2px solid #1E293B; }
     .stTabs [data-baseweb="tab"] { color: #94A3B8; font-weight: 600; padding-top: 1rem; padding-bottom: 1rem; }
     .stTabs [aria-selected="true"] { color: #F8B400; border-bottom-color: #F8B400; }
     .stAlert { background-color: #111827; border: 1px solid #374151; color: #D1D5DB; }
+
+    /* --- LE TUE MODIFICHE ESTETICHE --- */
+    /* Forza il colore arancione per le etichette di inserimento testo */
+    .stTextInput label p, .stTextArea label p { color: #F8B400 !important; font-weight: bold; }
+    
+    /* Forza il colore bianco puro per i valori e le etichette delle metriche (Deep Dive) */
+    [data-testid="stMetricValue"] div { color: #FFFFFF !important; }
+    [data-testid="stMetricLabel"] p { color: #FFFFFF !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -102,7 +117,6 @@ def fetch_deep_dive(symbol, benchmark='SPY'):
         bench = yf.Ticker(benchmark)
         info = ticker.info
         
-        # Estrazione dati storici a 1 anno
         end_date = datetime.now()
         start_date = end_date - timedelta(days=365)
         hist_stock = ticker.history(start=start_date, end=end_date)
@@ -140,12 +154,12 @@ with tab_home:
     st.warning("⚠️ RETAIL FEED: Dati puramente visivi e isolati. Non interagiscono con il motore quantitativo backend.")
     col_dx, col_sx = st.columns([1.5, 1])
     with col_dx:
-        cal_html = """<iframe src="https://sslecal2.investing.com?ecoDayBackground=%23000000&defaultFont=%23050505&ecoDayFontColor=%23d47f00&columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=25,32,6,37,72,22,17,39,14,10,35,43,56,36,110,11,26,12,4,5&calType=week&timeZone=16&lang=1" width="100%" height="467" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>"""
+        cal_html = """<iframe src="https://sslecal2.investing.com?ecoDayBackground=%23000000&defaultFont=%23050505&ecoDayFontColor=%23d47f00&columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=25,32,6,37,72,22,17,39,14,10,35,43,56,36,110,11,26,12,4,5&calType=week&timeZone=16&lang=1" width="100%" height="467" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe><div class="poweredBy" style="font-family: Arial, Helvetica, sans-serif;"><span style="font-size: 11px;color: #333333;text-decoration: none;">Real Time Economic Calendar provided by <a href="https://www.investing.com/" rel="nofollow" target="_blank" style="font-size: 11px;color: #06529D; font-weight: bold;" class="underline_link">Investing.com</a>.</span></div>"""
         components.html(cal_html, height=500)
     with col_sx:
-        fx_html = """<iframe src="https://www.widgets.investing.com/live-currency-cross-rates?theme=darkTheme&roundedCorners=true&pairs=1,3,2,4,7,5,8,6,9,10,11" width="100%" height="220" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>"""
+        fx_html = """<iframe src="https://www.widgets.investing.com/live-currency-cross-rates?theme=darkTheme&roundedCorners=true&pairs=1,3,2,4,7,5,8,6,9,10,11" width="100%" height="220" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe><div class="poweredBy" style="font-family: Arial, Helvetica, sans-serif;">Powered by <a href="https://www.investing.com?utm_source=WMT&amp;utm_medium=referral&amp;utm_campaign=LIVE_CURRENCY_X_RATES&amp;utm_content=Footer%20Link" target="_blank" rel="nofollow">Investing.com</a></div>"""
         components.html(fx_html, height=250)
-        crypto_html = """<iframe src="https://www.widgets.investing.com/top-cryptocurrencies?theme=darkTheme&roundedCorners=true" width="100%" height="220" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>"""
+        crypto_html = """<iframe src="https://www.widgets.investing.com/top-cryptocurrencies?theme=darkTheme&roundedCorners=true" width="100%" height="220" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe><div class="poweredBy" style="font-family: Arial, Helvetica, sans-serif;">Powered by <a href="https://www.investing.com?utm_source=WMT&amp;utm_medium=referral&amp;utm_campaign=TOP_CRYPTOCURRENCIES&amp;utm_content=Footer%20Link" target="_blank" rel="nofollow">Investing.com</a></div>"""
         components.html(crypto_html, height=250)
 
 with tab_stock:
@@ -191,51 +205,4 @@ with tab_portfolio:
         st.dataframe(portfolio, use_container_width=True)
         if not portfolio_clean.empty:
             fig = px.scatter(portfolio_clean, x='Price', y='Yield/Growth', color='Asset Class', hover_name='Identifier', color_discrete_sequence=['#3B82F6', '#10B981'])
-            fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#D1D5DB', family="Courier New"), xaxis=dict(showgrid=True, gridcolor='#1F2937', title="Prezzo di Mercato"), yaxis=dict(showgrid=True, gridcolor='#1F2937', title="Rendimento (YTM / ROE %)"))
-            st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.warning("⚠️ SYSTEM HALT: Popolare entrambi i database (EQ e FI) dai rispettivi tab prima di generare la matrice.")
-
-with tab_deepdive:
-    st.subheader("➤ X-RAY SINGLE ASSET (ISOLATED ANALYSIS)")
-    st.write("Analisi incrociata: Motore Quantitativo vs Analyst Consensus vs Trend Tecnico")
-    col_input, col_bench = st.columns(2)
-    with col_input:
-        target_ticker = st.text_input("Inserisci UN SINGOLO Ticker (es: MSFT, NVDA, RACE.MI):", "MSFT").upper()
-    with col_bench:
-        benchmark_ticker = st.text_input("Inserisci Benchmark di Riferimento (es: SPY, QQQ):", "SPY").upper()
-        
-    if st.button("EXECUTE X-RAY ANALYSIS"):
-        st.session_state['api_calls'] += 2
-        with st.spinner('Estrazione dati storici e consensus in corso...'):
-            dd_data = fetch_deep_dive(target_ticker, benchmark_ticker)
-            if dd_data.get('Status') == 'OK':
-                st.markdown(f"### 🎯 RADIOGRAFIA: {dd_data['Symbol']}")
-                
-                st.markdown("#### 1. FORZA RELATIVA (1 YEAR PERFORMANCE)")
-                c1, c2, c3 = st.columns(3)
-                c1.metric(f"Rendimento {dd_data['Symbol']}", f"{dd_data['Ret 1Y']:.2f}%" if pd.notnull(dd_data['Ret 1Y']) else "N/A")
-                c2.metric(f"Rendimento {benchmark_ticker}", f"{dd_data['Bench Ret 1Y']:.2f}%" if pd.notnull(dd_data['Bench Ret 1Y']) else "N/A")
-                c3.metric("Alpha Generato", f"{dd_data['Alpha (vs Bench)']:.2f}%" if pd.notnull(dd_data['Alpha (vs Bench)']) else "N/A", delta="Sotto-performante" if pd.notnull(dd_data['Alpha (vs Bench)']) and dd_data['Alpha (vs Bench)'] < 0 else "Sovra-performante", delta_color="normal")
-                
-                st.markdown("#### 2. WALL STREET CONSENSUS (LE 'VOCI')")
-                c4, c5, c6 = st.columns(3)
-                c4.metric("Raccomandazione Analisti", dd_data['Recommendation'])
-                c5.metric("Target Price Medio", f"{dd_data['Analyst Target']:.2f}" if pd.notnull(dd_data['Analyst Target']) else "N/A")
-                c6.metric("Upside Stimato %", f"{dd_data['Consensus Upside %']:.2f}%" if pd.notnull(dd_data['Consensus Upside %']) else "N/A")
-                
-                st.markdown("#### 3. REGIME TECNICO (IL VERO 'TIMEFRAME')")
-                c7, c8, c9 = st.columns(3)
-                trend_status = "📉 BEAR (Sotto SMA200)" if pd.notnull(dd_data['Price']) and pd.notnull(dd_data['SMA 200']) and dd_data['Price'] < dd_data['SMA 200'] else ("📈 BULL (Sopra SMA200)" if pd.notnull(dd_data['Price']) and pd.notnull(dd_data['SMA 200']) else "N/A")
-                c7.metric("Trend di Lungo Periodo", trend_status)
-                sma_cross = "🟢 POSITIVO (SMA50 > SMA200)" if pd.notnull(dd_data['SMA 50']) and pd.notnull(dd_data['SMA 200']) and dd_data['SMA 50'] > dd_data['SMA 200'] else ("🔴 NEGATIVO (Death Cross)" if pd.notnull(dd_data['SMA 50']) and pd.notnull(dd_data['SMA 200']) else "N/A")
-                c8.metric("Momentum Breve/Medio", sma_cross)
-                c9.metric("Distanza da 52w High (Drawdown)", f"{dd_data['Drawdown (52w)']:.2f}%" if pd.notnull(dd_data['Drawdown (52w)']) else "N/A")
-            else:
-                st.error("Errore API. Verifica che i ticker esistano su Yahoo Finance.")
-
-# =============================================================================
-# FOOTER
-# =============================================================================
-st.markdown("---")
-st.caption(f"SYSTEM STATUS: ONLINE | CACHE: ACTIVE | TOTAL API HITS (SESSION): {st.session_state['api_calls']}")
+            fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#FFFFFF', family="Courier New"), xaxis=dict(showgrid=True, grid
