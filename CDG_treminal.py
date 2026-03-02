@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 # =============================================================================
 # 1. CORE CONFIG & UI INJECTION
 # =============================================================================
-st.set_page_config(page_title="Alpha Terminal V11.0 - Quant Edition", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Alpha Terminal V11.1 - Diagnostic Edition", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -45,31 +45,22 @@ if 'api_calls' not in st.session_state: st.session_state['api_calls'] = 0
 # 3. MOTORI DI ESTRAZIONE E ALGORITMI
 # =============================================================================
 def calculate_true_implied_growth(price, eps, r=0.09, g_t=0.02, years=5):
-    """Calcola la crescita implicita usando un vero Discounted Earnings Model via Binary Search."""
     if pd.isna(price) or pd.isna(eps) or eps <= 0:
         return np.nan
-    low, high = -0.5, 1.5 # Range di crescita dal -50% al +150%
+    low, high = -0.5, 1.5 
     best_g = np.nan
-    
-    for _ in range(50): # 50 iterazioni garantiscono precisione al decimillesimo
+    for _ in range(50):
         mid = (low + high) / 2
-        
-        # 1. Present Value dei primi 5 anni
         pv_eps = sum([(eps * (1 + mid)**t) / ((1 + r)**t) for t in range(1, years + 1)])
-        
-        # 2. Terminal Value
         eps_5 = eps * (1 + mid)**years
         tv = (eps_5 * (1 + g_t)) / (r - g_t)
         pv_tv = tv / ((1 + r)**years)
-        
         estimated_price = pv_eps + pv_tv
-        
         if estimated_price > price:
             high = mid
         else:
             low = mid
         best_g = mid
-        
     return best_g * 100
 
 @st.cache_data(ttl=600)
@@ -77,7 +68,10 @@ def fetch_stock_data(symbol):
     try:
         ticker = yf.Ticker(symbol)
         info = ticker.info
-        price = info.get('currentPrice', np.nan)
+        if not info or 'regularMarketPrice' not in info and 'currentPrice' not in info:
+            raise ValueError("Dati anagrafici (info) bloccati o vuoti da Yahoo Finance.")
+            
+        price = info.get('currentPrice', info.get('regularMarketPrice', np.nan))
         pe = info.get('trailingPE', np.nan)
         roe = info.get('returnOnEquity', np.nan)
         rev_growth = info.get('revenueGrowth', np.nan)
@@ -102,8 +96,8 @@ def fetch_stock_data(symbol):
             'Rev Growth %': rev_growth * 100 if pd.notnull(rev_growth) else np.nan, 'Debt/Eq': debt_eq,
             'EPS': eps, 'Val. BEAR': val_bear, 'Val. BASE': val_base, 'Val. BULL': val_bull, 'MoS %': mos, 'Status': 'OK'
         }
-    except Exception:
-        return {'Symbol': symbol, 'Status': 'ERRORE', 'Price': np.nan, 'P/E': np.nan, 'ROE %': np.nan, 'Rev Growth %': np.nan, 'Debt/Eq': np.nan, 'EPS': np.nan, 'Val. BEAR': np.nan, 'Val. BASE': np.nan, 'Val. BULL': np.nan, 'MoS %': np.nan}
+    except Exception as e:
+        return {'Symbol': symbol, 'Status': f'ERRORE: {str(e)}', 'Price': np.nan, 'P/E': np.nan, 'ROE %': np.nan, 'Rev Growth %': np.nan, 'Debt/Eq': np.nan, 'EPS': np.nan, 'Val. BEAR': np.nan, 'Val. BASE': np.nan, 'Val. BULL': np.nan, 'MoS %': np.nan}
 
 @st.cache_data(ttl=600)
 def fetch_bond_data(isin):
@@ -127,6 +121,9 @@ def fetch_deep_dive(symbol, benchmark='SPY'):
         bench = yf.Ticker(benchmark)
         info = ticker.info
         
+        if not info:
+            raise ValueError("Dizionario '.info' restituito vuoto. IP probabilmente bannato (Rate Limit) o struttura API modificata da Yahoo.")
+        
         end_date = datetime.now()
         start_date = end_date - timedelta(days=365)
         hist_stock = ticker.history(start=start_date, end=end_date)
@@ -136,14 +133,12 @@ def fetch_deep_dive(symbol, benchmark='SPY'):
         ret_bench = ((hist_bench['Close'].iloc[-1] / hist_bench['Close'].iloc[0]) - 1) * 100 if not hist_bench.empty else np.nan
         alpha = ret_stock - ret_bench if pd.notnull(ret_stock) and pd.notnull(ret_bench) else np.nan
         
-        current_price = info.get('currentPrice', np.nan)
+        current_price = info.get('currentPrice', info.get('regularMarketPrice', np.nan))
         eps = info.get('trailingEps', np.nan)
         rev_growth = info.get('revenueGrowth', np.nan)
 
-        # Nuovo Motore Reverse DCF
         implied_g = calculate_true_implied_growth(current_price, eps)
 
-        # Manteniamo Graham solo per tracciare la linea visiva prudente sul grafico
         g_raw = info.get('earningsGrowth', None)
         if g_raw is None: g_raw = rev_growth if pd.notnull(rev_growth) else 0.05
         g_base = g_raw * 100
@@ -171,8 +166,8 @@ def fetch_deep_dive(symbol, benchmark='SPY'):
             'Implied Growth %': implied_g, 'Z-Score': z_score, 'Mean Price': mean_p, 'Std Price': std_p, 'Graham FV': graham_fv, 
             'Dates': dates, 'Prices': prices, 'Status': 'OK'
         }
-    except Exception:
-        return {'Symbol': symbol, 'Status': 'ERRORE API'}
+    except Exception as e:
+        return {'Symbol': symbol, 'Status': f'ERRORE DIAGNOSTICO: {str(e)}'}
 
 # =============================================================================
 # 4. INTERFACCIA A TAB
@@ -183,9 +178,7 @@ tab_home, tab_stock, tab_bond, tab_portfolio, tab_deepdive, tab_methodology = st
 
 with tab_home:
     st.subheader("➤ GLOBAL MACRO & SENTIMENT")
-    components.html("""<script type="module" src="https://widgets.tradingview-widget.com/w/it/tv-economic-map.js"></script>
-
-<tv-economic-map theme="dark"></tv-economic-map>""", height=550)
+    components.html("""<script type="module" src="https://widgets.tradingview-widget.com/w/it/tv-economic-map.js"></script><tv-economic-map theme="dark" width="100%" height="450"></tv-economic-map>""", height=470)
     components.html("""<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>{"displayMode": "regular","feedMode": "all_symbols","colorTheme": "dark","isTransparent": false,"locale": "it","width": "100%","height": 600}</script></div>""", height=620)
     components.html("""<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-screener.js" async>{"market": "italy","showToolbar": true,"defaultColumn": "overview","defaultScreen": "most_capitalized","isTransparent": false,"locale": "it","colorTheme": "dark","width": "100%","height": 550}</script></div>""", height=570)
     
@@ -204,7 +197,7 @@ with tab_stock:
         st.session_state['api_calls'] += len(symbols)
         st.session_state['df_stock'] = pd.DataFrame([fetch_stock_data(sym) for sym in symbols])
     if st.session_state['df_stock'] is not None:
-        st.dataframe(st.session_state['df_stock'].style.format({'Price': '{:.2f}', 'P/E': '{:.2f}', 'ROE %': '{:.1f}%', 'Rev Growth %': '{:.1f}%', 'Debt/Eq': '{:.1f}', 'EPS': '{:.2f}', 'Val. BEAR': '{:.2f}', 'Val. BASE': '{:.2f}', 'Val. BULL': '{:.2f}', 'MoS %': '{:.1f}%'}, na_rep='N/A').applymap(lambda v: 'color: #10B981; font-weight: bold' if v > 15 else ('color: #EF4444' if v < 0 else 'color: #F8B400'), subset=['MoS %']), use_container_width=True)
+        st.dataframe(st.session_state['df_stock'].style.format({'Price': '{:.2f}', 'P/E': '{:.2f}', 'ROE %': '{:.1f}%', 'Rev Growth %': '{:.1f}%', 'Debt/Eq': '{:.1f}', 'EPS': '{:.2f}', 'Val. BEAR': '{:.2f}', 'Val. BASE': '{:.2f}', 'Val. BULL': '{:.2f}', 'MoS %': '{:.1f}%'}, na_rep='N/A').applymap(lambda v: 'color: #10B981; font-weight: bold' if isinstance(v, (int, float)) and v > 15 else ('color: #EF4444' if isinstance(v, (int, float)) and v < 0 else 'color: #F8B400'), subset=['MoS %']), use_container_width=True)
 
 with tab_bond:
     st.subheader("➤ FIXED INCOME COMMAND LINE")
@@ -233,7 +226,7 @@ with tab_portfolio:
 with tab_deepdive:
     st.subheader("➤ X-RAY SINGLE ASSET (QUANTITATIVE ISOLATION)")
     col_input, col_bench = st.columns(2)
-    with col_input: target_ticker = st.text_input("Inserisci UN SINGOLO Ticker:", "NVDA").upper()
+    with col_input: target_ticker = st.text_input("Inserisci UN SINGOLO Ticker:", "AAPL").upper()
     with col_bench: benchmark_ticker = st.text_input("Inserisci Benchmark di Riferimento:", "SPY").upper()
         
     if st.button("EXECUTE QUANTITATIVE X-RAY"):
@@ -243,6 +236,13 @@ with tab_deepdive:
             if dd_data.get('Status') == 'OK':
                 st.markdown(f"### 🎯 RADIOGRAFIA: {dd_data['Symbol']}")
                 
+                with st.expander("📖 SPIEGAZIONE METRICHE (LEGGERE PRIMA DI AGIRE)"):
+                    st.markdown("""
+                    * **Crescita Implicita (Rev DCF):** Se l'azienda fosse prezzata giustamente *oggi*, quanto dovrebbe crescere ogni anno per giustificare questo prezzo? Se il numero è > 20%, il mercato è in pura estasi irrazionale.
+                    * **Z-Score (Elastico):** Calcola quante deviazioni standard il prezzo attuale dista dalla sua media annuale. Maggiore di +2? Stai comprando sui massimi assoluti spinto dalla massa. Minore di -2? Stai raccogliendo i cocci del panico altrui.
+                    * **Alpha vs Benchmark:** La differenza tra il rendimento del tuo titolo e quello dell'indice (S&P 500).
+                    """)
+
                 c1, c2, c3 = st.columns(3)
                 implied_g = dd_data['Implied Growth %']
                 c1.metric("Crescita Implicita (Rev DCF)", f"{implied_g:.2f}%" if pd.notnull(implied_g) else "N/A", delta="Estrema (>20%)" if pd.notnull(implied_g) and implied_g > 20 else "Razionale", delta_color="inverse")
@@ -265,14 +265,15 @@ with tab_deepdive:
                     fig_ts.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#FFFFFF', family="Courier New"), xaxis_title="Data", yaxis_title="Prezzo ($)", hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='#FFFFFF')))
                     st.plotly_chart(fig_ts, use_container_width=True)
             else:
-                st.error("Errore API. Verifica il ticker.")
+                # ORA VEDRAI IL VERO ERRORE
+                st.error(dd_data.get('Status', 'Errore Sconosciuto'))
 
 with tab_methodology:
     st.subheader("➤ MANUALE DEL MOTORE QUANTITATIVO (LEGGERE PRIMA DI AGIRE)")
     
     st.markdown("### 1. Reverse DCF (Discounted Cash Flow Modificato)")
     st.info("Risponde alla domanda: *Quanta crescita perfetta è prezzata dal mercato nel titolo oggi?*")
-    st.write("Il sistema abbandona la desueta formula di Graham inversa. Usa invece un algoritmo di ricerca binaria per calcolare il tasso di crescita implicito a due stadi. Attualizza i primi 5 anni e somma il Terminal Value. I parametri base cablati nel motore sono:")
+    st.write("Il sistema usa un algoritmo di ricerca binaria per calcolare il tasso di crescita implicito a due stadi. Attualizza i primi 5 anni e somma il Terminal Value.")
     st.markdown("- **Costo del Capitale (r):** 9.0% (Tasso di sconto fisso conservativo)")
     st.markdown("- **Crescita Terminale (g_T):** 2.0% (In linea con l'inflazione secolare a lungo termine)")
     st.markdown("**Regola Aurea:** Se questo numero supera il 20%, il mercato è in stato di euforia irrazionale per questo titolo. Ogni inciampo trimestrale comporterà un crollo del prezzo.")
@@ -286,12 +287,10 @@ with tab_methodology:
     st.markdown("### 3. Alpha vs Benchmark")
     st.info("Risponde alla domanda: *Vale la pena assumermi il rischio specifico di questa singola azienda?*")
     st.write("Calcola il rendimento a 1 anno del titolo meno il rendimento a 1 anno del benchmark (S&P 500 se non specificato altrimenti).")
-    st.markdown("**Regola Aurea:** Se l'Alpha è costantemente negativo, le tue tesi sono irrilevanti. Stai distruggendo il tuo patrimonio rispetto a comprare passivamente l'indice. Chiudi la posizione.")
+    st.markdown("**Regola Aurea:** Se l'Alpha è costantemente negativo, le tue tesi sono irrilevanti. Stai distruggendo il tuo patrimonio rispetto a comprare passivamente l'indice.")
 
 # =============================================================================
 # FOOTER
 # =============================================================================
 st.markdown("---")
 st.caption(f"SYSTEM STATUS: ONLINE | CACHE: ACTIVE | TOTAL API HITS: {st.session_state['api_calls']}")
-
-
