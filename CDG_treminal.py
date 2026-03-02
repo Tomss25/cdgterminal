@@ -183,7 +183,9 @@ tab_home, tab_stock, tab_bond, tab_portfolio, tab_deepdive, tab_methodology = st
 
 with tab_home:
     st.subheader("➤ GLOBAL MACRO & SENTIMENT")
-    components.html("""<script type="module" src="https://widgets.tradingview-widget.com/w/it/tv-economic-map.js"></script><tv-economic-map theme="dark" width="100%" height="450"></tv-economic-map>""", height=470)
+    components.html("""<script type="module" src="https://widgets.tradingview-widget.com/w/it/tv-economic-map.js"></script>
+
+<tv-economic-map theme="dark"></tv-economic-map>""", height=450)
     components.html("""<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>{"displayMode": "regular","feedMode": "all_symbols","colorTheme": "dark","isTransparent": false,"locale": "it","width": "100%","height": 600}</script></div>""", height=620)
     components.html("""<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-screener.js" async>{"market": "italy","showToolbar": true,"defaultColumn": "overview","defaultScreen": "most_capitalized","isTransparent": false,"locale": "it","colorTheme": "dark","width": "100%","height": 550}</script></div>""", height=570)
     
@@ -291,3 +293,4 @@ with tab_methodology:
 # =============================================================================
 st.markdown("---")
 st.caption(f"SYSTEM STATUS: ONLINE | CACHE: ACTIVE | TOTAL API HITS: {st.session_state['api_calls']}")
+
