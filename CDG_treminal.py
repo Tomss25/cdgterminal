@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 # =============================================================================
 # 1. CORE CONFIG & UI INJECTION
 # =============================================================================
-st.set_page_config(page_title="Alpha Terminal V10.3 - Final Edition", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Alpha Terminal V10.4 - Frankenstein Edition", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -152,13 +152,60 @@ tab_home, tab_stock, tab_bond, tab_portfolio, tab_deepdive = st.tabs(["[🏠] MA
 
 with tab_home:
     st.subheader("➤ GLOBAL MACRO & SENTIMENT (EXTERNAL FEED)")
-    st.warning("⚠️ RETAIL FEED: Dati puramente visivi e isolati. Non interagiscono con il motore quantitativo backend.")
+    st.warning("⚠️ RETAIL OVERLOAD: Hai riempito il terminale di feed esterni. Questo non è un edge quantitativo, è rumore.")
     
+    # 1. TV Economic Map
+    components.html("""
+    <script type="module" src="https://widgets.tradingview-widget.com/w/it/tv-economic-map.js"></script>
+    <tv-economic-map theme="dark" width="100%" height="450"></tv-economic-map>
+    """, height=470)
+    
+    # 2. TV Timeline
+    components.html("""
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>
+      {
+      "displayMode": "regular",
+      "feedMode": "all_symbols",
+      "colorTheme": "dark",
+      "isTransparent": false,
+      "locale": "it",
+      "width": "100%",
+      "height": 600
+      }
+      </script>
+    </div>
+    """, height=620)
+    
+    # 3. TV Screener Italy
+    components.html("""
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-screener.js" async>
+      {
+      "market": "italy",
+      "showToolbar": true,
+      "defaultColumn": "overview",
+      "defaultScreen": "most_capitalized",
+      "isTransparent": false,
+      "locale": "it",
+      "colorTheme": "dark",
+      "width": "100%",
+      "height": 550
+      }
+      </script>
+    </div>
+    """, height=570)
+    
+    st.markdown("---")
+    
+    # 4. I vecchi Widget Investing.com in 3 colonne
     col_sx, col_cx, col_dx = st.columns([1, 1.5, 1])
     
     with col_sx:
         st.markdown("**TECHNICAL SUMMARY (RETAIL)**")
-        tech_html = """<iframe src="https://ssltsw.investing.com?tabsLine=%23ff890a&chosenTab=%234a2804&notChosenTab=%23062545&buttonFont=%23000000&lang=1&forex=1,2,3,5,7,9,10&commodities=8830,8836,8831,8849,8833,8862,8832&indices=175,166,172,27,179,170,174&stocks=345,346,347,348,349,350,352&tabs=1,2,3,4" width="100%" height="467" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe><div class="poweredBy" style="font-family:arial,helvetica,sans-serif; direction:ltr;"><span style="font-size: 11px;color: #333333;text-decoration: none;">Technical Summary Widget Powered by <a href="https://www.investing.com/" rel="nofollow" target="_blank" style="font-size: 11px;color: #06529D; font-weight: bold;" class="underline_link">Investing.com</a></span></div>"""
+        tech_html = """<iframe src="https://ssltsw.investing.com?tabsLine=%23ff890a&chosenTab=%234a2804&notChosenTab=%23062545&buttonFont=%23000000&lang=1&forex=1,2,3,5,7,9,10&commodities=8830,8836,8831,8849,8833,8862,8832&indices=175,166,172,27,179,170,174&stocks=345,346,347,348,349,350,352&tabs=1,2,3,4" width="100%" height="467" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>"""
         components.html(tech_html, height=480)
         
     with col_cx:
@@ -207,13 +254,7 @@ with tab_portfolio:
         st.dataframe(portfolio, use_container_width=True)
         if not portfolio_clean.empty:
             fig = px.scatter(portfolio_clean, x='Price', y='Yield/Growth', color='Asset Class', hover_name='Identifier', color_discrete_sequence=['#3B82F6', '#10B981'])
-            fig.update_layout(
-                plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
-                font=dict(color='#FFFFFF', family="Courier New"), 
-                xaxis=dict(showgrid=True, gridcolor='#1F2937', title="Prezzo di Mercato"), 
-                yaxis=dict(showgrid=True, gridcolor='#1F2937', title="Rendimento (YTM / ROE %)"),
-                legend=dict(font=dict(color='#FFFFFF'))
-            )
+            fig.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#FFFFFF', family="Courier New"), xaxis=dict(showgrid=True, gridcolor='#1F2937', title="Prezzo di Mercato"), yaxis=dict(showgrid=True, gridcolor='#1F2937', title="Rendimento (YTM / ROE %)"), legend=dict(font=dict(color='#FFFFFF')))
             st.plotly_chart(fig, use_container_width=True)
 
 with tab_deepdive:
@@ -232,9 +273,9 @@ with tab_deepdive:
                 
                 with st.expander("📖 SPIEGAZIONE METRICHE (LEGGERE PRIMA DI AGIRE)"):
                     st.markdown("""
-                    * **Crescita Implicita (Rev DCF):** Se l'azienda fosse prezzata giustamente *oggi*, quanto dovrebbe crescere ogni anno per giustificare questo prezzo? Se il numero è > 20%, il mercato è in pura estasi irrazionale. Al primo trimestre sotto le attese, collasserà.
+                    * **Crescita Implicita (Rev DCF):** Se l'azienda fosse prezzata giustamente *oggi*, quanto dovrebbe crescere ogni anno per giustificare questo prezzo? Se il numero è > 20%, il mercato è in pura estasi irrazionale.
                     * **Z-Score (Elastico):** Calcola quante deviazioni standard il prezzo attuale dista dalla sua media annuale. Maggiore di +2? Stai comprando sui massimi assoluti spinto dalla massa. Minore di -2? Stai raccogliendo i cocci del panico altrui.
-                    * **Alpha vs Benchmark:** La differenza tra il rendimento del tuo titolo e quello dell'indice (S&P 500). Se è rosso, detenere questo titolo invece dell'indice S&P 500 è stato finanziariamente distruttivo per il tuo portafoglio.
+                    * **Alpha vs Benchmark:** La differenza tra il rendimento del tuo titolo e quello dell'indice (S&P 500).
                     """)
 
                 c1, c2, c3 = st.columns(3)
@@ -261,8 +302,7 @@ with tab_deepdive:
                         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                         font=dict(color='#FFFFFF', family="Courier New"),
                         xaxis_title="Data", yaxis_title="Prezzo del Titolo ($)",
-                        hovermode="x unified", 
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='#FFFFFF'))
+                        hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='#FFFFFF'))
                     )
                     st.plotly_chart(fig_ts, use_container_width=True)
                 else:
