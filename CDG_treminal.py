@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 # =============================================================================
 # 1. CORE CONFIG & UI INJECTION
 # =============================================================================
-st.set_page_config(page_title="Alpha Terminal V10.4 - Frankenstein Edition", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Alpha Terminal V11.0 - Quant Edition", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
@@ -42,8 +42,36 @@ if 'df_bond' not in st.session_state: st.session_state['df_bond'] = None
 if 'api_calls' not in st.session_state: st.session_state['api_calls'] = 0
 
 # =============================================================================
-# 3. MOTORI DI ESTRAZIONE DATI E VALUTAZIONE
+# 3. MOTORI DI ESTRAZIONE E ALGORITMI
 # =============================================================================
+def calculate_true_implied_growth(price, eps, r=0.09, g_t=0.02, years=5):
+    """Calcola la crescita implicita usando un vero Discounted Earnings Model via Binary Search."""
+    if pd.isna(price) or pd.isna(eps) or eps <= 0:
+        return np.nan
+    low, high = -0.5, 1.5 # Range di crescita dal -50% al +150%
+    best_g = np.nan
+    
+    for _ in range(50): # 50 iterazioni garantiscono precisione al decimillesimo
+        mid = (low + high) / 2
+        
+        # 1. Present Value dei primi 5 anni
+        pv_eps = sum([(eps * (1 + mid)**t) / ((1 + r)**t) for t in range(1, years + 1)])
+        
+        # 2. Terminal Value
+        eps_5 = eps * (1 + mid)**years
+        tv = (eps_5 * (1 + g_t)) / (r - g_t)
+        pv_tv = tv / ((1 + r)**years)
+        
+        estimated_price = pv_eps + pv_tv
+        
+        if estimated_price > price:
+            high = mid
+        else:
+            low = mid
+        best_g = mid
+        
+    return best_g * 100
+
 @st.cache_data(ttl=600)
 def fetch_stock_data(symbol):
     try:
@@ -112,16 +140,17 @@ def fetch_deep_dive(symbol, benchmark='SPY'):
         eps = info.get('trailingEps', np.nan)
         rev_growth = info.get('revenueGrowth', np.nan)
 
+        # Nuovo Motore Reverse DCF
+        implied_g = calculate_true_implied_growth(current_price, eps)
+
+        # Manteniamo Graham solo per tracciare la linea visiva prudente sul grafico
         g_raw = info.get('earningsGrowth', None)
         if g_raw is None: g_raw = rev_growth if pd.notnull(rev_growth) else 0.05
         g_base = g_raw * 100
         Y = 4.4
-        
         if pd.notnull(eps) and eps > 0 and pd.notnull(current_price):
-            implied_g = (((current_price * Y) / (eps * 4.4)) - 8.5) / 2
             graham_fv = (eps * (8.5 + 2 * g_base) * 4.4) / Y
         else:
-            implied_g = np.nan
             graham_fv = np.nan
 
         if not hist_stock.empty and pd.notnull(current_price):
@@ -148,94 +177,36 @@ def fetch_deep_dive(symbol, benchmark='SPY'):
 # =============================================================================
 # 4. INTERFACCIA A TAB
 # =============================================================================
-tab_home, tab_stock, tab_bond, tab_portfolio, tab_deepdive = st.tabs(["[🏠] MACRO", "[EQ] EQUITY", "[FI] FIXED INCOME", "[PRT] MATRIX", "[🔍] DEEP DIVE"])
+tab_home, tab_stock, tab_bond, tab_portfolio, tab_deepdive, tab_methodology = st.tabs([
+    "[🏠] MACRO", "[EQ] EQUITY", "[FI] FIXED INCOME", "[PRT] MATRIX", "[🔍] DEEP DIVE", "[📖] METODOLOGIA"
+])
 
 with tab_home:
-    st.subheader("➤ GLOBAL MACRO & SENTIMENT (EXTERNAL FEED)")
-    st.warning("⚠️ RETAIL OVERLOAD: Hai riempito il terminale di feed esterni. Questo non è un edge quantitativo, è rumore.")
+    st.subheader("➤ GLOBAL MACRO & SENTIMENT")
+    components.html("""<script type="module" src="https://widgets.tradingview-widget.com/w/it/tv-economic-map.js"></script><tv-economic-map theme="dark" width="100%" height="450"></tv-economic-map>""", height=470)
+    components.html("""<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>{"displayMode": "regular","feedMode": "all_symbols","colorTheme": "dark","isTransparent": false,"locale": "it","width": "100%","height": 600}</script></div>""", height=620)
+    components.html("""<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-screener.js" async>{"market": "italy","showToolbar": true,"defaultColumn": "overview","defaultScreen": "most_capitalized","isTransparent": false,"locale": "it","colorTheme": "dark","width": "100%","height": 550}</script></div>""", height=570)
     
-    # 1. TV Economic Map
-    components.html("""
-    <script type="module" src="https://widgets.tradingview-widget.com/w/it/tv-economic-map.js"></script>
-    <tv-economic-map theme="dark" width="100%" height="450"></tv-economic-map>
-    """, height=470)
-    
-    # 2. TV Timeline
-    components.html("""
-    <div class="tradingview-widget-container">
-      <div class="tradingview-widget-container__widget"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-timeline.js" async>
-      {
-      "displayMode": "regular",
-      "feedMode": "all_symbols",
-      "colorTheme": "dark",
-      "isTransparent": false,
-      "locale": "it",
-      "width": "100%",
-      "height": 600
-      }
-      </script>
-    </div>
-    """, height=620)
-    
-    # 3. TV Screener Italy
-    components.html("""
-    <div class="tradingview-widget-container">
-      <div class="tradingview-widget-container__widget"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-screener.js" async>
-      {
-      "market": "italy",
-      "showToolbar": true,
-      "defaultColumn": "overview",
-      "defaultScreen": "most_capitalized",
-      "isTransparent": false,
-      "locale": "it",
-      "colorTheme": "dark",
-      "width": "100%",
-      "height": 550
-      }
-      </script>
-    </div>
-    """, height=570)
-    
-    st.markdown("---")
-    
-    # 4. I vecchi Widget Investing.com in 3 colonne
     col_sx, col_cx, col_dx = st.columns([1, 1.5, 1])
-    
-    with col_sx:
-        st.markdown("**TECHNICAL SUMMARY (RETAIL)**")
-        tech_html = """<iframe src="https://ssltsw.investing.com?tabsLine=%23ff890a&chosenTab=%234a2804&notChosenTab=%23062545&buttonFont=%23000000&lang=1&forex=1,2,3,5,7,9,10&commodities=8830,8836,8831,8849,8833,8862,8832&indices=175,166,172,27,179,170,174&stocks=345,346,347,348,349,350,352&tabs=1,2,3,4" width="100%" height="467" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>"""
-        components.html(tech_html, height=480)
-        
-    with col_cx:
-        st.markdown("**CALENDARIO ECONOMICO**")
-        cal_html = """<iframe src="https://sslecal2.investing.com?ecoDayBackground=%23000000&defaultFont=%23050505&ecoDayFontColor=%23d47f00&columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=25,32,6,37,72,22,17,39,14,10,35,43,56,36,110,11,26,12,4,5&calType=week&timeZone=16&lang=1" width="100%" height="467" frameborder="0"></iframe>"""
-        components.html(cal_html, height=480)
-        
+    with col_sx: components.html("""<iframe src="https://ssltsw.investing.com?tabsLine=%23ff890a&chosenTab=%234a2804&notChosenTab=%23062545&buttonFont=%23000000&lang=1&forex=1,2,3,5,7,9,10&commodities=8830,8836,8831,8849,8833,8862,8832&indices=175,166,172,27,179,170,174&stocks=345,346,347,348,349,350,352&tabs=1,2,3,4" width="100%" height="467" frameborder="0"></iframe>""", height=480)
+    with col_cx: components.html("""<iframe src="https://sslecal2.investing.com?ecoDayBackground=%23000000&defaultFont=%23050505&ecoDayFontColor=%23d47f00&columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=25,32,6,37,72,22,17,39,14,10,35,43,56,36,110,11,26,12,4,5&calType=week&timeZone=16&lang=1" width="100%" height="467" frameborder="0"></iframe>""", height=480)
     with col_dx:
-        st.markdown("**LIVE CURRENCIES & CRYPTO**")
-        fx_html = """<iframe src="https://www.widgets.investing.com/live-currency-cross-rates?theme=darkTheme&roundedCorners=true&pairs=1,3,2,4,7,5,8,6,9,10,11" width="100%" height="220" frameborder="0"></iframe>"""
-        components.html(fx_html, height=230)
-        crypto_html = """<iframe src="https://www.widgets.investing.com/top-cryptocurrencies?theme=darkTheme&roundedCorners=true" width="100%" height="220" frameborder="0"></iframe>"""
-        components.html(crypto_html, height=230)
+        components.html("""<iframe src="https://www.widgets.investing.com/live-currency-cross-rates?theme=darkTheme&roundedCorners=true&pairs=1,3,2,4,7,5,8,6,9,10,11" width="100%" height="220" frameborder="0"></iframe>""", height=230)
+        components.html("""<iframe src="https://www.widgets.investing.com/top-cryptocurrencies?theme=darkTheme&roundedCorners=true" width="100%" height="220" frameborder="0"></iframe>""", height=230)
 
 with tab_stock:
-    st.subheader("➤ EQUITY COMMAND LINE & VALUATION ENGINE")
-    symbols_input = st.text_area("INSERISCI TICKER (Separati da a capo)", "AAPL\nMSFT\nENI.MI", height=100)
+    st.subheader("➤ EQUITY COMMAND LINE")
+    symbols_input = st.text_area("INSERISCI TICKER", "AAPL\nMSFT\nENI.MI", height=100)
     if st.button("EXECUTE VALUATION SCENARIOS"):
         symbols = [s.strip().upper() for s in symbols_input.split('\n') if s.strip()]
         st.session_state['api_calls'] += len(symbols)
         st.session_state['df_stock'] = pd.DataFrame([fetch_stock_data(sym) for sym in symbols])
     if st.session_state['df_stock'] is not None:
-        def color_mos(val):
-            if pd.isna(val): return ''
-            return 'color: #10B981; font-weight: bold' if val > 15 else ('color: #EF4444' if val < 0 else 'color: #F8B400')
-        st.dataframe(st.session_state['df_stock'].style.format({'Price': '{:.2f}', 'P/E': '{:.2f}', 'ROE %': '{:.1f}%', 'Rev Growth %': '{:.1f}%', 'Debt/Eq': '{:.1f}', 'EPS': '{:.2f}', 'Val. BEAR': '{:.2f}', 'Val. BASE': '{:.2f}', 'Val. BULL': '{:.2f}', 'MoS %': '{:.1f}%'}, na_rep='N/A').applymap(color_mos, subset=['MoS %']), use_container_width=True)
+        st.dataframe(st.session_state['df_stock'].style.format({'Price': '{:.2f}', 'P/E': '{:.2f}', 'ROE %': '{:.1f}%', 'Rev Growth %': '{:.1f}%', 'Debt/Eq': '{:.1f}', 'EPS': '{:.2f}', 'Val. BEAR': '{:.2f}', 'Val. BASE': '{:.2f}', 'Val. BULL': '{:.2f}', 'MoS %': '{:.1f}%'}, na_rep='N/A').applymap(lambda v: 'color: #10B981; font-weight: bold' if v > 15 else ('color: #EF4444' if v < 0 else 'color: #F8B400'), subset=['MoS %']), use_container_width=True)
 
 with tab_bond:
     st.subheader("➤ FIXED INCOME COMMAND LINE")
-    isins_input = st.text_area("INSERISCI ISIN (Separati da a capo)", "XS2486589596\nFR0013327988", height=100)
+    isins_input = st.text_area("INSERISCI ISIN", "XS2486589596\nFR0013327988", height=100)
     if st.button("EXECUTE BOND QUERY"):
         isins = [i.strip().upper() for i in isins_input.split('\n') if i.strip()]
         st.session_state['df_bond'] = pd.DataFrame([fetch_bond_data(isin) for isin in isins])
@@ -267,27 +238,18 @@ with tab_deepdive:
         st.session_state['api_calls'] += 2
         with st.spinner('Calcolo modelli quantitativi in corso...'):
             dd_data = fetch_deep_dive(target_ticker, benchmark_ticker)
-            
             if dd_data.get('Status') == 'OK':
                 st.markdown(f"### 🎯 RADIOGRAFIA: {dd_data['Symbol']}")
                 
-                with st.expander("📖 SPIEGAZIONE METRICHE (LEGGERE PRIMA DI AGIRE)"):
-                    st.markdown("""
-                    * **Crescita Implicita (Rev DCF):** Se l'azienda fosse prezzata giustamente *oggi*, quanto dovrebbe crescere ogni anno per giustificare questo prezzo? Se il numero è > 20%, il mercato è in pura estasi irrazionale.
-                    * **Z-Score (Elastico):** Calcola quante deviazioni standard il prezzo attuale dista dalla sua media annuale. Maggiore di +2? Stai comprando sui massimi assoluti spinto dalla massa. Minore di -2? Stai raccogliendo i cocci del panico altrui.
-                    * **Alpha vs Benchmark:** La differenza tra il rendimento del tuo titolo e quello dell'indice (S&P 500).
-                    """)
-
                 c1, c2, c3 = st.columns(3)
                 implied_g = dd_data['Implied Growth %']
-                c1.metric("Crescita Implicita (Rev DCF)", f"{implied_g:.2f}%" if pd.notnull(implied_g) else "N/A", delta="Delirio (>20%)" if pd.notnull(implied_g) and implied_g > 20 else "Razionale", delta_color="inverse")
+                c1.metric("Crescita Implicita (Rev DCF)", f"{implied_g:.2f}%" if pd.notnull(implied_g) else "N/A", delta="Estrema (>20%)" if pd.notnull(implied_g) and implied_g > 20 else "Razionale", delta_color="inverse")
                 z = dd_data['Z-Score']
                 c2.metric("Z-Score Storico (1Y)", f"{z:.2f} σ" if pd.notnull(z) else "N/A", delta="Bolla Statistica" if pd.notnull(z) and z > 2 else "In Media", delta_color="inverse" if pd.notnull(z) and z > 2 else "normal")
-                c3.metric("Alpha vs Benchmark", f"{dd_data['Alpha (vs Bench)']:.2f}%" if pd.notnull(dd_data['Alpha (vs Bench)']) else "N/A", delta="Distruzione Valore" if pd.notnull(dd_data['Alpha (vs Bench)']) and dd_data['Alpha (vs Bench)'] < 0 else "Creazione Valore", delta_color="normal")
+                c3.metric("Alpha vs Benchmark", f"{dd_data['Alpha (vs Bench)']:.2f}%" if pd.notnull(dd_data['Alpha (vs Bench)']) else "N/A", delta="Sotto-performante" if pd.notnull(dd_data['Alpha (vs Bench)']) and dd_data['Alpha (vs Bench)'] < 0 else "Sovra-performante", delta_color="normal")
                 
                 st.markdown("---")
                 st.markdown("#### 📉 DINAMICA DEI PREZZI VS STORICO (1Y Z-SCORE BANDS)")
-                
                 if type(dd_data['Dates']) is not float: 
                     fig_ts = go.Figure()
                     fig_ts.add_trace(go.Scatter(x=dd_data['Dates'], y=dd_data['Prices'], mode='lines', name='Prezzo Mercato', line=dict(color='#F8B400', width=2)))
@@ -296,19 +258,33 @@ with tab_deepdive:
                     fig_ts.add_trace(go.Scatter(x=dd_data['Dates'], y=[dd_data['Mean Price'] - (2*dd_data['Std Price'])]*len(dd_data['Dates']), mode='lines', name='-2σ (Panico Estremo)', line=dict(color='#10B981', width=1, dash='dot')))
                     
                     if pd.notnull(dd_data['Graham FV']):
-                        fig_ts.add_trace(go.Scatter(x=dd_data['Dates'], y=[dd_data['Graham FV']]*len(dd_data['Dates']), mode='lines', name='Graham Fair Value', line=dict(color='#3B82F6', width=2)))
+                        fig_ts.add_trace(go.Scatter(x=dd_data['Dates'], y=[dd_data['Graham FV']]*len(dd_data['Dates']), mode='lines', name='Graham FV (Prudenziale)', line=dict(color='#3B82F6', width=2)))
 
-                    fig_ts.update_layout(
-                        plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                        font=dict(color='#FFFFFF', family="Courier New"),
-                        xaxis_title="Data", yaxis_title="Prezzo del Titolo ($)",
-                        hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='#FFFFFF'))
-                    )
+                    fig_ts.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#FFFFFF', family="Courier New"), xaxis_title="Data", yaxis_title="Prezzo ($)", hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color='#FFFFFF')))
                     st.plotly_chart(fig_ts, use_container_width=True)
-                else:
-                    st.warning("Dati storici insufficienti per generare il grafico di deviazione standard.")
             else:
                 st.error("Errore API. Verifica il ticker.")
+
+with tab_methodology:
+    st.subheader("➤ MANUALE DEL MOTORE QUANTITATIVO (LEGGERE PRIMA DI AGIRE)")
+    
+    st.markdown("### 1. Reverse DCF (Discounted Cash Flow Modificato)")
+    st.info("Risponde alla domanda: *Quanta crescita perfetta è prezzata dal mercato nel titolo oggi?*")
+    st.write("Il sistema abbandona la desueta formula di Graham inversa. Usa invece un algoritmo di ricerca binaria per calcolare il tasso di crescita implicito a due stadi. Attualizza i primi 5 anni e somma il Terminal Value. I parametri base cablati nel motore sono:")
+    st.markdown("- **Costo del Capitale (r):** 9.0% (Tasso di sconto fisso conservativo)")
+    st.markdown("- **Crescita Terminale (g_T):** 2.0% (In linea con l'inflazione secolare a lungo termine)")
+    st.markdown("**Regola Aurea:** Se questo numero supera il 20%, il mercato è in stato di euforia irrazionale per questo titolo. Ogni inciampo trimestrale comporterà un crollo del prezzo.")
+
+    st.markdown("### 2. Z-Score (Mean Reversion)")
+    st.info("Risponde alla domanda: *Sto comprando la FOMO o il panico?*")
+    st.write("Misura quante deviazioni standard il prezzo attuale si discosta dalla sua media statistica mobile a un anno.")
+    st.markdown("- **> +2.0 σ:** Il titolo è nella coda destra della distribuzione. Estrema euforia. Pericoloso comprare.")
+    st.markdown("- **< -2.0 σ:** Il titolo è nella coda sinistra. Panico estremo. Se l'azienda è sana, questo è il punto di ingresso.")
+
+    st.markdown("### 3. Alpha vs Benchmark")
+    st.info("Risponde alla domanda: *Vale la pena assumermi il rischio specifico di questa singola azienda?*")
+    st.write("Calcola il rendimento a 1 anno del titolo meno il rendimento a 1 anno del benchmark (S&P 500 se non specificato altrimenti).")
+    st.markdown("**Regola Aurea:** Se l'Alpha è costantemente negativo, le tue tesi sono irrilevanti. Stai distruggendo il tuo patrimonio rispetto a comprare passivamente l'indice. Chiudi la posizione.")
 
 # =============================================================================
 # FOOTER
